@@ -136,8 +136,10 @@
     flex-shrink: 0;
     font-size: 14px;
     transition: background 0.15s;
+    color: var(--text2);
   }
-  .tool-btn.active .tool-icon { background: rgba(91,106,247,0.2); }
+  .tool-btn.active .tool-icon { background: rgba(91,106,247,0.2); color: var(--accent2); }
+  .tool-icon svg { display: block; }
   .tool-label { font-weight: 500; }
   .tool-desc { font-size: 11px; color: var(--text3); margin-top: 1px; }
 
@@ -451,6 +453,192 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+
+  /* ═══════════════════════════════════════════════
+     MOBILE RESPONSIVE — ≤ 640px
+  ═══════════════════════════════════════════════ */
+  @media (max-width: 640px) {
+
+    /* Header */
+    header {
+      padding: 14px 16px;
+    }
+    .logo { font-size: 18px; }
+    .header-badge { font-size: 10px; padding: 3px 8px; }
+
+    /* Layout: stack sidebar below as bottom tab bar */
+    .app {
+      flex-direction: column;
+      height: auto;
+      min-height: calc(100vh - 53px);
+      padding-bottom: 72px; /* space for bottom nav */
+    }
+
+    /* Sidebar becomes a fixed bottom tab bar */
+    .sidebar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      width: 100%;
+      height: 68px;
+      flex-direction: row;
+      border-right: none;
+      border-top: 1px solid var(--border);
+      z-index: 50;
+      background: rgba(20,20,22,0.96);
+      backdrop-filter: blur(20px);
+      overflow: hidden;
+    }
+    .sidebar-header { display: none; }
+    .tool-list {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      padding: 0;
+      overflow: hidden;
+      gap: 0;
+    }
+    .tool-btn {
+      flex: 1;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 8px 4px;
+      border-radius: 0;
+      margin-bottom: 0;
+      font-size: 10px;
+      border: none !important;
+      min-width: 0;
+    }
+    .tool-btn.active {
+      background: rgba(91,106,247,0.12);
+      border-top: 2px solid var(--accent) !important;
+    }
+    .tool-icon {
+      width: 26px; height: 26px;
+      font-size: 13px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .tool-label { font-size: 10px; font-weight: 500; line-height: 1; white-space: nowrap; }
+    .tool-desc { display: none; }
+
+    /* Main panel fills viewport */
+    .main-panel {
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+    }
+
+    /* Tool view: natural height, not 100vh */
+    .tool-view { height: auto; min-height: 0; }
+
+    /* Tool header */
+    .tool-header {
+      padding: 18px 16px 14px;
+    }
+    .tool-title { font-size: 18px; }
+    .tool-subtitle { font-size: 13px; }
+
+    /* Drop zone */
+    .drop-zone {
+      margin: 14px 16px;
+      padding: 28px 16px;
+    }
+    .drop-icon { font-size: 28px; margin-bottom: 8px; }
+    .drop-text { font-size: 14px; }
+    .drop-sub { font-size: 12px; }
+    .drop-btn { margin-top: 12px; padding: 8px 18px; font-size: 13px; }
+
+    /* File list */
+    .file-list { margin: 0 16px 12px; }
+    .file-action-btn { width: 32px; height: 32px; font-size: 14px; } /* larger touch targets */
+
+    /* Pages grid — 3 columns on mobile */
+    .pages-section { margin: 0 16px 16px; }
+    .pages-grid { gap: 10px; }
+    .page-card { width: calc(33.33% - 7px); }
+    .page-preview {
+      width: 100%;
+      height: 0;
+      padding-bottom: 130%; /* maintain aspect ratio */
+      position: relative;
+    }
+    .page-preview canvas,
+    .page-preview img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* Always show page action buttons on mobile (no hover) */
+    .page-del-btn,
+    .page-rotate-btn { display: flex !important; }
+    .page-del-btn { width: 22px; height: 22px; font-size: 12px; }
+    .page-rotate-btn { width: 22px; height: 22px; font-size: 12px; }
+
+    /* Action bar */
+    .action-bar {
+      padding: 12px 16px;
+      flex-wrap: wrap;
+      gap: 8px;
+      position: sticky;
+      bottom: 68px; /* sit above the tab bar */
+      z-index: 40;
+    }
+    .btn-primary { flex: 1; justify-content: center; padding: 12px 16px; font-size: 14px; }
+    .btn-secondary { padding: 12px 14px; font-size: 13px; }
+    .status-msg { width: 100%; text-align: center; margin-left: 0; font-size: 12px; }
+
+    /* Progress bar */
+    .progress-bar { margin: 0 16px 12px; }
+
+    /* Options row */
+    .options-row { margin: 0 16px 12px; }
+
+    /* Empty state */
+    .empty-state { padding: 32px 20px; min-height: 200px; }
+    .empty-icon { font-size: 36px; }
+    .empty-text { font-size: 15px; }
+    .empty-sub { font-size: 12px; }
+
+    /* Toast */
+    .toast { bottom: 80px; right: 12px; left: 12px; justify-content: center; font-size: 13px; }
+  }
+
+  /* ═══════════════════════════════════════════════
+     TABLET — 641px–900px
+  ═══════════════════════════════════════════════ */
+  @media (min-width: 641px) and (max-width: 900px) {
+    header { padding: 16px 24px; }
+
+    .app { height: calc(100vh - 61px); }
+
+    .sidebar { width: 200px; }
+    .tool-btn { padding: 10px 10px; gap: 8px; }
+    .tool-desc { display: none; }
+
+    .tool-header { padding: 20px 20px 16px; }
+    .tool-title { font-size: 20px; }
+
+    .drop-zone { margin: 16px 20px; padding: 32px 16px; }
+
+    .file-list { margin: 0 20px 12px; }
+    .pages-section { margin: 0 20px 16px; }
+    .pages-grid { gap: 10px; }
+    .page-card { width: 88px; }
+    .page-preview { width: 88px; height: 114px; }
+
+    .action-bar { padding: 14px 20px; }
+    .progress-bar { margin: 0 20px 12px; }
+    .options-row { margin: 0 20px 12px; }
+
+    /* Always-visible buttons on tablet too */
+    .page-del-btn,
+    .page-rotate-btn { display: flex !important; }
+  }
 </style>
 </head>
 <body>
@@ -466,28 +654,88 @@
     <div class="sidebar-header">Tools</div>
     <div class="tool-list">
       <button class="tool-btn active" onclick="switchTool('merge')" id="btn-merge">
-        <div class="tool-icon">⊕</div>
+        <div class="tool-icon">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Doc 1 -->
+            <rect x="1" y="3" width="7" height="9" rx="1.2" stroke="currentColor" stroke-width="1.4" fill="none"/>
+            <path d="M3 6.5H6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/>
+            <path d="M3 8.5H6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/>
+            <!-- Doc 2 -->
+            <rect x="10" y="3" width="7" height="9" rx="1.2" stroke="currentColor" stroke-width="1.4" fill="none"/>
+            <path d="M12 6.5H15" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/>
+            <path d="M12 8.5H15" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/>
+            <!-- Plus badge -->
+            <circle cx="9" cy="14.5" r="2.8" fill="currentColor"/>
+            <path d="M9 13.2V15.8M7.7 14.5H10.3" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </div>
         <div>
           <div class="tool-label">Merge PDFs</div>
           <div class="tool-desc">Combine multiple files</div>
         </div>
       </button>
       <button class="tool-btn" onclick="switchTool('reorganize')" id="btn-reorganize">
-        <div class="tool-icon">⇄</div>
+        <div class="tool-icon">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Document -->
+            <rect x="3" y="2" width="12" height="14" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/>
+            <!-- Lines with drag handles -->
+            <path d="M6 6H12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M6 9H12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M6 12H12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <!-- Up/down arrows on right edge -->
+            <path d="M13.5 5L15 3.5L16.5 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M13.5 13L15 14.5L16.5 13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15 3.5V14.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+          </svg>
+        </div>
         <div>
           <div class="tool-label">Reorganize</div>
           <div class="tool-desc">Reorder & delete pages</div>
         </div>
       </button>
       <button class="tool-btn" onclick="switchTool('pdf2img')" id="btn-pdf2img">
-        <div class="tool-icon">⬛</div>
+        <div class="tool-icon">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- PDF doc -->
+            <rect x="1" y="2" width="9" height="11" rx="1.2" stroke="currentColor" stroke-width="1.4" fill="none"/>
+            <path d="M3 5.5H7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/>
+            <path d="M3 7.5H7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/>
+            <path d="M3 9.5H5.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/>
+            <!-- Arrow -->
+            <path d="M10.5 8.5L13 8.5M13 8.5L11.6 7.1M13 8.5L11.6 9.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Image frame -->
+            <rect x="13.5" y="5" width="4" height="7" rx="0.8" stroke="currentColor" stroke-width="1.3" fill="none"/>
+            <!-- Mountain in image -->
+            <path d="M14.2 10.5L15.5 8.2L16.8 10.5Z" fill="currentColor" opacity="0.55"/>
+            <!-- Sun -->
+            <circle cx="16.5" cy="6.6" r="0.7" fill="currentColor" opacity="0.55"/>
+          </svg>
+        </div>
         <div>
           <div class="tool-label">PDF → Image</div>
           <div class="tool-desc">Export pages as PNG</div>
         </div>
       </button>
       <button class="tool-btn" onclick="switchTool('img2pdf')" id="btn-img2pdf">
-        <div class="tool-icon">◻</div>
+        <div class="tool-icon">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Photo frame -->
+            <rect x="1" y="1" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/>
+            <!-- Mountain landscape inside photo -->
+            <path d="M2.5 8.5L4.5 5.5L6.5 7.5L7.5 6L9.5 8.5Z" fill="currentColor" opacity="0.6"/>
+            <!-- Sun dot -->
+            <circle cx="7.8" cy="3.8" r="1" fill="currentColor" opacity="0.6"/>
+            <!-- Arrow pointing right -->
+            <path d="M11.5 9L13.5 9M13.5 9L12.3 7.8M13.5 9L12.3 10.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- PDF document -->
+            <rect x="14" y="6" width="3" height="4" rx="0.5" stroke="currentColor" stroke-width="1.3" fill="none"/>
+            <path d="M14 8H17" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+            <!-- PDF lines -->
+            <path d="M5 13H13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+            <path d="M5 15.5H10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+          </svg>
+        </div>
         <div>
           <div class="tool-label">Image → PDF</div>
           <div class="tool-desc">Convert PNG/JPG to PDF</div>
