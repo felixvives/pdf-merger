@@ -9,7 +9,7 @@ A lightweight, client-side PDF utility tool inspired by iLovePDF. No servers, no
 No installation needed. Just open `index.html` in any modern browser and you're ready to go.
 
 ```
-open pdf-tool.html
+open index.html
 ```
 
 An internet connection is required on first load to fetch two CDN libraries (pdf-lib and PDF.js) and the Google Fonts used in the UI. After that, all file processing happens locally on your machine.
