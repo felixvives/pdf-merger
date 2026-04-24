@@ -281,7 +281,7 @@
     transition: all 0.15s;
     position: relative;
   }
-  .page-preview canvas { width: 100% !important; height: 100% !important; }
+  .page-preview canvas { max-width: 100%; max-height: 100%; display: block; margin: auto; }
   .page-preview img { width: 100%; height: 100%; object-fit: contain; }
   .page-num {
     font-size: 11px;
@@ -637,6 +637,17 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// ─── CANVAS CLONE HELPER ─────────────────────────────────────
+// cloneNode(true) on a canvas does NOT copy pixel data — always blank.
+// This helper creates a real pixel copy via drawImage.
+function cloneCanvas(src) {
+  const dst = document.createElement('canvas');
+  dst.width = src.width;
+  dst.height = src.height;
+  dst.getContext('2d').drawImage(src, 0, 0);
+  return dst;
+}
+
 // ─── SETUP ───────────────────────────────────────────────────
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -766,35 +777,6 @@ async function mergePDFs() {
 }
 
 // ─── REORGANIZE TOOL ─────────────────────────────────────────
-async function loadPDFForReorg(file) {
-  const bar = document.getElementById('progress-bar-reorg');
-  const fill = document.getElementById('progress-fill-reorg');
-  const section = document.getElementById('pages-section-reorg');
-  const empty = document.getElementById('empty-reorg');
-  bar.classList.add('visible'); fill.style.width = '0%';
-  empty.style.display = 'none';
-  try {
-    const bytes = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-    state.reorg.pages = [];
-    state.reorg.rotations = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
-      fill.style.width = (i / pdf.numPages * 100) + '%';
-      const page = await pdf.getPage(i);
-      const canvas = document.createElement('canvas');
-      const scale = 0.5;
-      const vp = page.getViewport({ scale, rotation: 0 });
-      canvas.width = vp.width; canvas.height = vp.height;
-      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-      state.reorg.pages.push(canvas);
-      state.reorg.rotations.push(0);
-    }
-    document.getElementById('pages-title-reorg').textContent = `Pages (${pdf.numPages}) — drag to reorder`;
-    renderReorgPages();
-    section.style.display = 'block';
-  } catch(e) { showToast('Error loading PDF', 'error'); console.error(e); }
-  bar.classList.remove('visible');
-}
 
 function renderReorgPages() {
   const grid = document.getElementById('pages-grid-reorg');
@@ -813,7 +795,7 @@ function renderReorgPages() {
       <div class="page-num">Page ${i+1}</div>
       <button class="page-del-btn" onclick="deleteReorgPage(${i})" title="Delete page">✕</button>
       <button class="page-rotate-btn" onclick="rotateReorgPage(${i})" title="Rotate page">↻</button>`;
-    card.querySelector('.page-preview').appendChild(canvas.cloneNode(true));
+    card.querySelector('.page-preview').appendChild(cloneCanvas(canvas));
     card.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', i); card.classList.add('dragging'); });
     card.addEventListener('dragend', () => card.classList.remove('dragging'));
     card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drag-target'); });
@@ -825,8 +807,10 @@ function renderReorgPages() {
       if (from === to) return;
       const pg = state.reorg.pages.splice(from, 1)[0];
       const rt = state.reorg.rotations.splice(from, 1)[0];
+      const pm = state.reorg._pageMap ? state.reorg._pageMap.splice(from, 1)[0] : null;
       state.reorg.pages.splice(to, 0, pg);
       state.reorg.rotations.splice(to, 0, rt);
+      if (pm !== null && state.reorg._pageMap) state.reorg._pageMap.splice(to, 0, pm);
       renderReorgPages();
     });
     grid.appendChild(card);
@@ -837,6 +821,7 @@ function deleteReorgPage(i) {
   if (state.reorg.pages.length <= 1) { showToast('Cannot delete the only page', 'error'); return; }
   state.reorg.pages.splice(i, 1);
   state.reorg.rotations.splice(i, 1);
+  if (state.reorg._pageMap) state.reorg._pageMap.splice(i, 1);
   renderReorgPages();
 }
 
@@ -844,50 +829,6 @@ function rotateReorgPage(i) {
   state.reorg.rotations[i] = ((state.reorg.rotations[i] || 0) + 90) % 360;
   renderReorgPages();
 }
-
-async function saveReorganized() {
-  if (!state.reorg.file || !state.reorg.pages.length) { showToast('Load a PDF first', 'error'); return; }
-  const btn = document.getElementById('btn-do-reorg');
-  btn.disabled = true; btn.textContent = '⏳ Saving…';
-  try {
-    const { PDFDocument, degrees } = PDFLib;
-    const bytes = await state.reorg.file.arrayBuffer();
-    const src = await PDFDocument.load(bytes);
-    const out = await PDFDocument.create();
-    // We need to map canvas indices to original page indices
-    // Since pages array stores canvases in reordered form, we track original page order via a separate map
-    // Actually we render them in order and store rotations; for the reordered PDF we need to copy pages in new order
-    // We store the ORIGINAL page number per canvas position
-    if (!state.reorg._origOrder) {
-      // First load - original order
-      state.reorg._origOrder = Array.from({length: src.getPageCount()}, (_,i) => i);
-    }
-    // The pages have been dragged/deleted, map by position
-    const pageIndices = getReorgPageIndices();
-    for (let i = 0; i < pageIndices.length; i++) {
-      const [copied] = await out.copyPages(src, [pageIndices[i]]);
-      const rot = state.reorg.rotations[i] || 0;
-      if (rot !== 0) copied.setRotation(degrees(rot));
-      out.addPage(copied);
-    }
-    const saved = await out.save();
-    const name = state.reorg.file.name.replace('.pdf','') + '_reorganized.pdf';
-    downloadBytes(saved, name);
-    showToast('✓ Saved!', 'success');
-  } catch(e) { showToast('Error saving PDF', 'error'); console.error(e); }
-  btn.disabled = false; btn.innerHTML = '↓ Save PDF';
-}
-
-function getReorgPageIndices() {
-  // We need to track which original pages correspond to current canvas positions
-  if (!state.reorg._pageMap) {
-    state.reorg._pageMap = Array.from({length: state.reorg.pages.length}, (_,i) => i);
-  }
-  return state.reorg._pageMap;
-}
-
-// Better approach: track page indices alongside canvases
-async function loadPDFForReorgV2(file) {}
 
 // ─── PDF → IMAGE TOOL ────────────────────────────────────────
 async function loadPDFForPreview(file) {
@@ -936,7 +877,7 @@ function renderP2IPages() {
     card.style.cursor = 'pointer';
     card.title = `Click to download page ${pageNum}`;
     card.innerHTML = `<div class="page-preview"></div><div class="page-num">Page ${pageNum}</div>`;
-    card.querySelector('.page-preview').appendChild(previewCanvas.cloneNode(true));
+    card.querySelector('.page-preview').appendChild(cloneCanvas(previewCanvas));
     card.addEventListener('click', () => downloadPageAsImage(i));
     grid.appendChild(card);
   });
@@ -1037,13 +978,8 @@ async function convertImagesToPDF() {
   btn.disabled = false; btn.innerHTML = '⬛ Convert to PDF';
 }
 
-// ─── REORGANIZE: TRACK PAGE INDICES ──────────────────────────
-// Improved reorg loading that tracks original page indices
-const _origReorgIndices = [];
-
-const _origLoadPDF = loadPDFForReorg;
+// ─── REORGANIZE: LOAD PDF ────────────────────────────────────
 async function loadPDFForReorg(file) {
-  _origReorgIndices.length = 0;
   const bar = document.getElementById('progress-bar-reorg');
   const fill = document.getElementById('progress-fill-reorg');
   const section = document.getElementById('pages-section-reorg');
@@ -1068,70 +1004,13 @@ async function loadPDFForReorg(file) {
       state.reorg._pageMap.push(i - 1); // 0-indexed original page
     }
     document.getElementById('pages-title-reorg').textContent = `Pages (${pdf.numPages}) — drag to reorder`;
-    setupReorgDnD(); 
     renderReorgPages();
     section.style.display = 'block';
   } catch(e) { showToast('Error loading PDF', 'error'); console.error(e); }
   bar.classList.remove('visible');
 }
 
-function setupReorgDnD() {} // handled inline in renderReorgPages
-
-// Override renderReorgPages to also track _pageMap during drag
-const _origRenderReorgPages = renderReorgPages;
-function renderReorgPages() {
-  const grid = document.getElementById('pages-grid-reorg');
-  const section = document.getElementById('pages-section-reorg');
-  const empty = document.getElementById('empty-reorg');
-  grid.innerHTML = '';
-  if (!state.reorg.pages.length) { section.style.display = 'none'; empty.style.display = 'flex'; return; }
-  state.reorg.pages.forEach((canvas, i) => {
-    const rot = state.reorg.rotations[i] || 0;
-    const card = document.createElement('div');
-    card.className = 'page-card';
-    card.draggable = true;
-    card.dataset.index = i;
-    const previewDiv = document.createElement('div');
-    previewDiv.className = 'page-preview';
-    previewDiv.style.transform = `rotate(${rot}deg)`;
-    previewDiv.appendChild(canvas.cloneNode(true));
-    card.appendChild(previewDiv);
-    const numDiv = document.createElement('div');
-    numDiv.className = 'page-num';
-    numDiv.textContent = `Page ${i+1}`;
-    card.appendChild(numDiv);
-    const delBtn = document.createElement('button');
-    delBtn.className = 'page-del-btn';
-    delBtn.title = 'Delete page';
-    delBtn.innerHTML = '✕';
-    delBtn.onclick = () => deleteReorgPage(i);
-    card.appendChild(delBtn);
-    const rotBtn = document.createElement('button');
-    rotBtn.className = 'page-rotate-btn';
-    rotBtn.title = 'Rotate page';
-    rotBtn.innerHTML = '↻';
-    rotBtn.onclick = () => rotateReorgPage(i);
-    card.appendChild(rotBtn);
-    card.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', String(i)); card.classList.add('dragging'); });
-    card.addEventListener('dragend', () => card.classList.remove('dragging'));
-    card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drag-target'); });
-    card.addEventListener('dragleave', () => card.classList.remove('drag-target'));
-    card.addEventListener('drop', e => {
-      e.preventDefault(); card.classList.remove('drag-target');
-      const from = parseInt(e.dataTransfer.getData('text/plain'));
-      const to = parseInt(card.dataset.index);
-      if (from === to) return;
-      // Swap in all arrays
-      [state.reorg.pages[from], state.reorg.pages[to]] = [state.reorg.pages[to], state.reorg.pages[from]];
-      [state.reorg.rotations[from], state.reorg.rotations[to]] = [state.reorg.rotations[to], state.reorg.rotations[from]];
-      if (state.reorg._pageMap) [state.reorg._pageMap[from], state.reorg._pageMap[to]] = [state.reorg._pageMap[to], state.reorg._pageMap[from]];
-      renderReorgPages();
-    });
-    grid.appendChild(card);
-  });
-}
-
-// Override saveReorganized to use _pageMap
+// ─── SAVE REORGANIZED PDF ────────────────────────────────────
 async function saveReorganized() {
   if (!state.reorg.file || !state.reorg.pages.length) { showToast('Load a PDF first', 'error'); return; }
   const btn = document.getElementById('btn-do-reorg');
