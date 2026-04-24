@@ -6,7 +6,7 @@ A lightweight, client-side PDF utility tool inspired by iLovePDF. No servers, no
 
 ## Getting Started
 
-No installation needed. Just open `pdf-tool.html` in any modern browser and you're ready to go.
+No installation needed. Just open `index.html` in any modern browser and you're ready to go.
 
 ```
 open pdf-tool.html
