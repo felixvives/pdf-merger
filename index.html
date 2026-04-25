@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
   :root {
     --bg:#0c0c0e; --surface:#141416; --surface2:#1c1c20; --surface3:#242428;
@@ -118,6 +119,20 @@
   ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
   ::-webkit-scrollbar-thumb:hover{background:var(--border2)}
 
+  /* ── WORD TOOL ── */
+  .word-mode-toggle{margin:0 36px 16px;display:flex;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px;flex-shrink:0}
+  .mode-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:8px 14px;border:none;background:none;color:var(--text2);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .18s}
+  .mode-btn:hover{color:var(--text)}
+  .mode-btn.active{background:var(--surface3);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  .mode-btn svg{flex-shrink:0}
+
+  .word-preview{margin:0 36px 16px;display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);flex-shrink:0}
+  .word-preview-icon{font-size:28px;flex-shrink:0}
+  .word-preview-info{flex:1;min-width:0}
+  .word-preview-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .word-preview-meta{font-size:12px;color:var(--text3);margin-top:3px}
+  .word-preview-check{flex-shrink:0}
+
   @keyframes spin{to{transform:rotate(360deg)}}
 
   /* ── MOBILE ≤640px ── */
@@ -157,7 +172,7 @@
     .btn-secondary{padding:12px 14px;font-size:13px}
     .status-msg{width:100%;text-align:center;margin-left:0;font-size:12px}
     .progress-bar{margin:0 16px 12px}
-    .options-row{margin:0 16px 12px}
+    .options-row,.word-mode-toggle,.word-preview{margin:0 16px 12px}
     .empty-state{padding:32px 20px;min-height:200px}
     .empty-icon{font-size:36px}
     .empty-text{font-size:15px}
@@ -180,7 +195,7 @@
     .page-card{width:88px}
     .page-preview{width:88px;height:114px}
     .action-bar{padding:14px 20px}
-    .progress-bar,.options-row{margin:0 20px 12px}
+    .progress-bar,.options-row,.word-mode-toggle,.word-preview{margin:0 20px 12px}
     .page-del-btn,.page-rotate-btn{display:flex !important}
   }
 </style>
@@ -261,6 +276,27 @@
         <div>
           <div class="tool-label" data-i18n="img2pdf">Image → PDF</div>
           <div class="tool-desc" data-i18n="img2pdfDesc">Convert PNG/JPG to PDF</div>
+        </div>
+      </button>
+
+      <button class="tool-btn" onclick="switchTool('word')" id="btn-word">
+        <div class="tool-icon">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <!-- Word doc with W -->
+            <rect x="1" y="1" width="10" height="13" rx="1.3" stroke="currentColor" stroke-width="1.4" fill="none"/>
+            <path d="M3.5 5.5L5 10.5L6.5 7L8 10.5L9.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Arrow -->
+            <path d="M11.5 9H13.5M13.5 9L12.3 7.8M13.5 9L12.3 10.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- PDF doc -->
+            <rect x="14" y="5" width="3.5" height="5" rx=".6" stroke="currentColor" stroke-width="1.3" fill="none"/>
+            <path d="M14.4 7.2H17M14.4 8.6H16" stroke="currentColor" stroke-width=".9" stroke-linecap="round" opacity=".6"/>
+            <!-- bidirectional hint -->
+            <path d="M13.5 13L11.5 13M11.5 13L12.7 11.8M11.5 13L12.7 14.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>
+          </svg>
+        </div>
+        <div>
+          <div class="tool-label" data-i18n="wordTool">Word ↔ PDF</div>
+          <div class="tool-desc" data-i18n="wordDesc">Convert DOCX &amp; PDF</div>
         </div>
       </button>
 
@@ -413,6 +449,73 @@
       </div>
     </div>
 
+    <!-- WORD ↔ PDF -->
+    <div class="tool-view" id="view-word">
+      <div class="tool-header">
+        <div class="tool-title" data-i18n="wordTitle">Word ↔ PDF</div>
+        <div class="tool-subtitle" data-i18n="wordSubtitle">Convert DOCX files to PDF, or extract PDF text into a Word document</div>
+      </div>
+
+      <!-- Mode toggle -->
+      <div class="word-mode-toggle" id="word-mode-toggle">
+        <button class="mode-btn active" id="mode-btn-docx2pdf" onclick="setWordMode('docx2pdf')">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x=".5" y=".5" width="7" height="9" rx="1" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M1.8 3.5L3 7.5L4.2 5L5.4 7.5L6.6 3.5" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 7H10.5M10.5 7L9.5 6M10.5 7L9.5 8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><rect x="11" y="4" width="2.5" height="3.5" rx=".5" stroke="currentColor" stroke-width="1.1" fill="none"/></svg>
+          <span data-i18n="docx2pdfMode">DOCX → PDF</span>
+        </button>
+        <button class="mode-btn" id="mode-btn-pdf2docx" onclick="setWordMode('pdf2docx')">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x=".5" y="4" width="2.5" height="3.5" rx=".5" stroke="currentColor" stroke-width="1.1" fill="none"/><path d="M3.5 7H5.5M5.5 7L4.5 6M5.5 7L4.5 8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><rect x="6.5" y=".5" width="7" height="9" rx="1" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M8 3.5L9.2 7.5L10.4 5L11.6 7.5L12.8 3.5" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span data-i18n="pdf2docxMode">PDF → DOCX</span>
+        </button>
+      </div>
+
+      <!-- DOCX → PDF drop zone -->
+      <div class="drop-zone" id="drop-word-d2p" ondragover="handleDragOver(event,'drop-word-d2p')" ondragleave="handleDragLeave('drop-word-d2p')" ondrop="handleDrop(event,'word-d2p')" onclick="document.getElementById('input-word-d2p').click()">
+        <div class="drop-icon">📝</div>
+        <div class="drop-text" data-i18n="dropDOCX">Drop a Word file here</div>
+        <div class="drop-sub" data-i18n="docxFormats">.docx supported</div>
+        <button class="drop-btn" onclick="event.stopPropagation();document.getElementById('input-word-d2p').click()" data-i18n="chooseDOCX">Choose DOCX</button>
+      </div>
+      <input type="file" id="input-word-d2p" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none" onchange="handleFiles(event,'word-d2p')">
+
+      <!-- PDF → DOCX drop zone -->
+      <div class="drop-zone" id="drop-word-p2d" style="display:none" ondragover="handleDragOver(event,'drop-word-p2d')" ondragleave="handleDragLeave('drop-word-p2d')" ondrop="handleDrop(event,'word-p2d')" onclick="document.getElementById('input-word-p2d').click()">
+        <div class="drop-icon">📄</div>
+        <div class="drop-text" data-i18n="dropPDF2">Drop a PDF here</div>
+        <div class="drop-sub" data-i18n="pdfToDocxSub">Text will be extracted into a Word document</div>
+        <button class="drop-btn" onclick="event.stopPropagation();document.getElementById('input-word-p2d').click()" data-i18n="choosePDF">Choose PDF</button>
+      </div>
+      <input type="file" id="input-word-p2d" accept=".pdf,application/pdf" style="display:none" onchange="handleFiles(event,'word-p2d')">
+
+      <div class="progress-bar" id="progress-bar-word"><div class="progress-fill" id="progress-fill-word"></div></div>
+
+      <!-- Preview card -->
+      <div class="word-preview" id="word-preview" style="display:none">
+        <div class="word-preview-icon" id="word-preview-icon">📝</div>
+        <div class="word-preview-info">
+          <div class="word-preview-name" id="word-preview-name">document.docx</div>
+          <div class="word-preview-meta" id="word-preview-meta">Ready to convert</div>
+        </div>
+        <div class="word-preview-check">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" fill="var(--accent)" opacity=".15"/><path d="M5.5 9L7.5 11L12.5 6.5" stroke="var(--accent2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+
+      <div class="empty-state" id="empty-word">
+        <div class="empty-icon">📝</div>
+        <div class="empty-text" data-i18n="noWordFile">No file loaded</div>
+        <div class="empty-sub" data-i18n="wordEmpty">Upload a DOCX or PDF file to convert it</div>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn-primary" onclick="runWordConversion()" id="btn-do-word">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9.5 4.5M13 8L9.5 11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span data-i18n="convertWordBtn">Convert</span>
+        </button>
+        <button class="btn-secondary" onclick="clearFiles('word')" data-i18n="clear">Clear</button>
+        <span class="status-msg" id="status-word"></span>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -461,6 +564,18 @@ const LANG = {
     pageN:n=>`Page ${n}`, pagesCount:n=>`Pages (${n}) \u2014 drag to reorder`,
     pageCount:n=>`${n} page${n>1?'s':''}`, clickDownload:n=>`Click to download page ${n}`,
     moveUp:'Move up', moveDown:'Move down', remove:'Remove', deletePage:'Delete page', rotatePage:'Rotate page',
+    wordTool:'Word \u2194 PDF', wordDesc:'Convert DOCX & PDF',
+    wordTitle:'Word \u2194 PDF', wordSubtitle:'Convert DOCX files to PDF, or extract PDF text into a Word document',
+    docx2pdfMode:'DOCX \u2192 PDF', pdf2docxMode:'PDF \u2192 DOCX',
+    dropDOCX:'Drop a Word file here', docxFormats:'.docx supported', chooseDOCX:'Choose DOCX',
+    dropPDF2:'Drop a PDF here', pdfToDocxSub:'Text will be extracted into a Word document',
+    noWordFile:'No file loaded', wordEmpty:'Upload a DOCX or PDF file to convert it',
+    convertWordBtn:'Convert',
+    wordReadyD2P:f=>`Ready: ${f}`, wordReadyP2D:f=>`Ready: ${f}`,
+    convertingWord:'Converting\u2026',
+    wordDoneD2P:'\u2713 PDF created!', wordDoneP2D:'\u2713 DOCX created!',
+    wordErrD2P:'Error converting DOCX', wordErrP2D:'Error extracting PDF',
+    wordNoFile:'Please load a file first',
   },
   es: {
     badge:'Local \u00b7 Sin subidas', tools:'Herramientas',
@@ -502,6 +617,18 @@ const LANG = {
     pageN:n=>`P\u00e1gina ${n}`, pagesCount:n=>`P\u00e1ginas (${n}) \u2014 arrastra para reordenar`,
     pageCount:n=>`${n} p\u00e1gina${n>1?'s':''}`, clickDownload:n=>`Clic para descargar p\u00e1gina ${n}`,
     moveUp:'Subir', moveDown:'Bajar', remove:'Eliminar', deletePage:'Eliminar p\u00e1gina', rotatePage:'Rotar p\u00e1gina',
+    wordTool:'Word \u2194 PDF', wordDesc:'Convertir DOCX y PDF',
+    wordTitle:'Word \u2194 PDF', wordSubtitle:'Convierte archivos DOCX a PDF, o extrae el texto de un PDF a Word',
+    docx2pdfMode:'DOCX \u2192 PDF', pdf2docxMode:'PDF \u2192 DOCX',
+    dropDOCX:'Arrastra un archivo Word aqu\u00ed', docxFormats:'Compatible con .docx', chooseDOCX:'Elegir DOCX',
+    dropPDF2:'Arrastra un PDF aqu\u00ed', pdfToDocxSub:'El texto ser\u00e1 extra\u00eddo a un documento Word',
+    noWordFile:'Ning\u00fan archivo cargado', wordEmpty:'Sube un archivo DOCX o PDF para convertirlo',
+    convertWordBtn:'Convertir',
+    wordReadyD2P:f=>`Listo: ${f}`, wordReadyP2D:f=>`Listo: ${f}`,
+    convertingWord:'Convirtiendo\u2026',
+    wordDoneD2P:'\u2713 \u00a1PDF creado!', wordDoneP2D:'\u2713 \u00a1DOCX creado!',
+    wordErrD2P:'Error al convertir el DOCX', wordErrP2D:'Error al extraer el PDF',
+    wordNoFile:'Por favor, carga un archivo primero',
   }
 };
 
@@ -520,6 +647,7 @@ const ICONS = {
   save:    `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2V10M8 10L5 7M8 10L11 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
   export:  `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="10" rx="1.2" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M5 9L7 6.5L9 8L10.5 6.5L13 9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5.5" cy="5" r="1" fill="currentColor"/><path d="M5 13.5H11M8 11.5V14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
   convert: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="9" height="9" rx="1.2" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M2.5 7.5L4 5L5.5 6.5L6.5 5L8.5 7.5Z" fill="currentColor" opacity=".6"/><circle cx="7" cy="3.2" r=".9" fill="currentColor" opacity=".6"/><path d="M10.5 8H12.5M12.5 8L11.3 6.8M12.5 8L11.3 9.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><rect x="13" y="5.5" width="2.5" height="3.5" rx=".5" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M13 7H15.5" stroke="currentColor" stroke-width=".9" opacity=".5"/><path d="M3 12H11M3 14.5H8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".4"/></svg>`,
+  word:    `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9.5 4.5M13 8L9.5 11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   spinner: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="animation:spin .9s linear infinite;flex-shrink:0"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="2" stroke-dasharray="26" stroke-dashoffset="9" stroke-linecap="round"/></svg>`,
 };
 
@@ -541,7 +669,8 @@ const state = {
   merge:{ files:[] },
   reorg:{ file:null, pages:[], rotations:[], _pageMap:[] },
   p2i:{ file:null, canvases:[] },
-  i2p:{ files:[] }
+  i2p:{ files:[] },
+  word:{ file:null, mode:'docx2pdf' }
 };
 
 function cloneCanvas(src) {
@@ -562,7 +691,7 @@ function handleDragOver(e,id){ e.preventDefault(); document.getElementById(id).c
 function handleDragLeave(id){ document.getElementById(id).classList.remove('drag-over'); }
 function handleDrop(e,tool){
   e.preventDefault();
-  document.getElementById({merge:'drop-merge',reorg:'drop-reorg',p2i:'drop-p2i',i2p:'drop-i2p'}[tool]).classList.remove('drag-over');
+  document.getElementById({merge:'drop-merge',reorg:'drop-reorg',p2i:'drop-p2i',i2p:'drop-i2p','word-d2p':'drop-word-d2p','word-p2d':'drop-word-p2d'}[tool]).classList.remove('drag-over');
   processFiles(Array.from(e.dataTransfer.files), tool);
 }
 function handleFiles(e,tool){ processFiles(Array.from(e.target.files), tool); e.target.value=''; }
@@ -584,6 +713,14 @@ function processFiles(files, tool) {
     const imgs = files.filter(f=>f.type.startsWith('image/'));
     if (!imgs.length){ showToast(T.addImages,'error'); return; }
     state.i2p.files.push(...imgs); renderImageList();
+  } else if (tool==='word-d2p') {
+    const f = files.find(f=>f.name.endsWith('.docx')||f.type.includes('wordprocessingml'));
+    if (!f){ showToast('Please add a .docx file','error'); return; }
+    state.word.file = f; state.word.mode = 'docx2pdf'; renderWordPreview();
+  } else if (tool==='word-p2d') {
+    const f = files.find(f=>f.type==='application/pdf'||f.name.endsWith('.pdf'));
+    if (!f){ showToast(T.addPDF,'error'); return; }
+    state.word.file = f; state.word.mode = 'pdf2docx'; renderWordPreview();
   }
 }
 
@@ -592,6 +729,7 @@ function clearFiles(tool) {
   else if (tool==='reorg'){ state.reorg={file:null,pages:[],rotations:[],_pageMap:[]}; renderReorgPages(); }
   else if (tool==='p2i'){ state.p2i={file:null,canvases:[]}; renderP2IPages(); }
   else if (tool==='i2p'){ state.i2p.files=[]; renderImageList(); }
+  else if (tool==='word'){ state.word={file:null,mode:state.word.mode}; renderWordPreview(); }
 }
 
 // ─── MERGE ────────────────────────────────────────────────────
@@ -823,6 +961,382 @@ async function convertImagesToPDF() {
     showToast(T.convertedOk(state.i2p.files.length),'success');
   } catch(e){ showToast(T.convertError,'error'); console.error(e); }
   setBtnReady('btn-do-i2p','convert',T.convertBtn);
+}
+
+// ─── WORD ↔ PDF ───────────────────────────────────────────────
+function setWordMode(mode) {
+  state.word.mode = mode;
+  state.word.file = null;
+  document.getElementById('mode-btn-docx2pdf').classList.toggle('active', mode==='docx2pdf');
+  document.getElementById('mode-btn-pdf2docx').classList.toggle('active', mode==='pdf2docx');
+  document.getElementById('drop-word-d2p').style.display = mode==='docx2pdf' ? '' : 'none';
+  document.getElementById('drop-word-p2d').style.display = mode==='pdf2docx' ? '' : 'none';
+  renderWordPreview();
+}
+
+function renderWordPreview() {
+  const preview = document.getElementById('word-preview');
+  const empty   = document.getElementById('empty-word');
+  const nameEl  = document.getElementById('word-preview-name');
+  const metaEl  = document.getElementById('word-preview-meta');
+  const iconEl  = document.getElementById('word-preview-icon');
+  const statusEl= document.getElementById('status-word');
+  statusEl.textContent = '';
+  if (!state.word.file) {
+    preview.style.display = 'none';
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+  preview.style.display = 'flex';
+  iconEl.textContent = state.word.mode === 'docx2pdf' ? '\uD83D\uDCDD' : '\uD83D\uDCC4';
+  nameEl.textContent = state.word.file.name;
+  const label = state.word.mode==='docx2pdf' ? T.wordReadyD2P(state.word.file.name) : T.wordReadyP2D(state.word.file.name);
+  metaEl.textContent = `${(state.word.file.size/1024).toFixed(0)} KB \u2014 ${state.word.mode==='docx2pdf'?'DOCX \u2192 PDF':'PDF \u2192 DOCX'}`;
+}
+
+async function runWordConversion() {
+  if (!state.word.file){ showToast(T.wordNoFile,'error'); return; }
+  if (state.word.mode === 'docx2pdf') await convertDOCXtoPDF();
+  else await convertPDFtoDOCX();
+}
+
+async function convertDOCXtoPDF() {
+  setBtnWorking('btn-do-word', T.convertingWord);
+  try {
+    // Use mammoth to extract HTML from DOCX, then render into PDF via pdf-lib
+    const arrayBuffer = await state.word.file.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    const html = result.value;
+
+    // Parse HTML into structured content
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    const { PDFDocument, rgb, StandardFonts } = PDFLib;
+    const pdfDoc = await PDFDocument.create();
+    const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontBold    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    const PAGE_W = 595, PAGE_H = 842;
+    const MARGIN = 56, LINE_H = 16, PARA_GAP = 8;
+    const MAX_W = PAGE_W - MARGIN * 2;
+
+    let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    let y = PAGE_H - MARGIN;
+
+    function wrapText(text, font, size, maxW) {
+      const words = text.split(' ');
+      const lines = []; let cur = '';
+      for (const w of words) {
+        const test = cur ? cur + ' ' + w : w;
+        if (font.widthOfTextAtSize(test, size) <= maxW) { cur = test; }
+        else { if (cur) lines.push(cur); cur = w; }
+      }
+      if (cur) lines.push(cur);
+      return lines;
+    }
+
+    function drawLines(lines, font, size, color=[0,0,0], indent=0) {
+      for (const line of lines) {
+        if (y < MARGIN + LINE_H) {
+          page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+          y = PAGE_H - MARGIN;
+        }
+        page.drawText(line, { x: MARGIN + indent, y, size, font, color: rgb(...color) });
+        y -= LINE_H;
+      }
+    }
+
+    function addParagraphGap() { y -= PARA_GAP; }
+
+    const nodes = doc.body.childNodes;
+    for (const node of nodes) {
+      if (node.nodeType !== 1) continue;
+      const tag = node.tagName.toLowerCase();
+      const text = node.textContent.trim();
+      if (!text) { addParagraphGap(); continue; }
+
+      if (tag === 'h1') {
+        y -= 4;
+        const lines = wrapText(text, fontBold, 18, MAX_W);
+        drawLines(lines, fontBold, 18, [0.08, 0.08, 0.12]);
+        y -= 6;
+      } else if (tag === 'h2') {
+        y -= 2;
+        const lines = wrapText(text, fontBold, 14, MAX_W);
+        drawLines(lines, fontBold, 14, [0.1, 0.1, 0.18]);
+        y -= 4;
+      } else if (tag === 'h3') {
+        const lines = wrapText(text, fontBold, 12, MAX_W);
+        drawLines(lines, fontBold, 12, [0.15, 0.15, 0.25]);
+        y -= 2;
+      } else if (tag === 'ul' || tag === 'ol') {
+        const items = node.querySelectorAll('li');
+        let idx = 1;
+        for (const li of items) {
+          const bullet = tag === 'ul' ? '\u2022 ' : `${idx++}. `;
+          const bW = fontRegular.widthOfTextAtSize(bullet, 11);
+          const liText = bullet + li.textContent.trim();
+          const lines = wrapText(liText, fontRegular, 11, MAX_W - 8);
+          for (let l = 0; l < lines.length; l++) {
+            const ln = l === 0 ? lines[l] : '   ' + lines[l];
+            if (y < MARGIN + LINE_H) { page = pdfDoc.addPage([PAGE_W, PAGE_H]); y = PAGE_H - MARGIN; }
+            page.drawText(ln, { x: MARGIN + 8, y, size: 11, font: fontRegular, color: rgb(0,0,0) });
+            y -= LINE_H;
+          }
+        }
+        addParagraphGap();
+      } else if (tag === 'table') {
+        const rows = node.querySelectorAll('tr');
+        for (const row of rows) {
+          const cells = row.querySelectorAll('th,td');
+          const colW = MAX_W / (cells.length || 1);
+          let maxH = 0;
+          const cellLines = [];
+          for (const cell of cells) {
+            const isH = cell.tagName.toLowerCase() === 'th';
+            const f = isH ? fontBold : fontRegular;
+            const ls = wrapText(cell.textContent.trim(), f, 10, colW - 8);
+            cellLines.push({ lines: ls, bold: isH });
+            maxH = Math.max(maxH, ls.length * 13 + 8);
+          }
+          if (y - maxH < MARGIN) { page = pdfDoc.addPage([PAGE_W, PAGE_H]); y = PAGE_H - MARGIN; }
+          cellLines.forEach(({ lines, bold }, ci) => {
+            const f = bold ? fontBold : fontRegular;
+            const cx = MARGIN + ci * colW;
+            page.drawRectangle({ x: cx, y: y - maxH, width: colW, height: maxH, borderColor: rgb(.8,.8,.8), borderWidth: .5 });
+            lines.forEach((ln, li) => {
+              page.drawText(ln, { x: cx + 4, y: y - 14 - li * 13, size: 10, font: f, color: rgb(0,0,0) });
+            });
+          });
+          y -= maxH;
+        }
+        addParagraphGap();
+      } else {
+        // p, div, span, blockquote, etc.
+        const hasB = node.querySelector('strong,b');
+        const font = hasB ? fontBold : fontRegular;
+        const lines = wrapText(text, font, 11, MAX_W);
+        drawLines(lines, font, 11);
+        addParagraphGap();
+      }
+    }
+
+    const pdfBytes = await pdfDoc.save();
+    const outName = state.word.file.name.replace(/\.docx$/i, '.pdf');
+    downloadBytes(pdfBytes, outName);
+    showToast(T.wordDoneD2P, 'success');
+    document.getElementById('status-word').textContent = outName;
+  } catch(e) {
+    showToast(T.wordErrD2P, 'error');
+    console.error(e);
+  }
+  setBtnReady('btn-do-word', 'word', T.convertWordBtn);
+}
+
+async function convertPDFtoDOCX() {
+  setBtnWorking('btn-do-word', T.convertingWord);
+  const bar = document.getElementById('progress-bar-word');
+  const fill = document.getElementById('progress-fill-word');
+  bar.classList.add('visible'); fill.style.width = '0%';
+  try {
+    // Extract text page by page via PDF.js
+    const bytes = await state.word.file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+    const sections = [];
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      fill.style.width = (i / pdf.numPages * 90) + '%';
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      // Group items into lines by Y position
+      const lineMap = new Map();
+      for (const item of content.items) {
+        const y = Math.round(item.transform[5]);
+        if (!lineMap.has(y)) lineMap.set(y, []);
+        lineMap.get(y).push(item.str);
+      }
+      const sortedY = [...lineMap.keys()].sort((a,b)=>b-a);
+      const pageText = sortedY.map(y => lineMap.get(y).join(' ').trim()).filter(Boolean);
+      sections.push({ pageNum: i, lines: pageText });
+    }
+
+    fill.style.width = '95%';
+
+    // Build DOCX using raw Open XML (no external lib needed — create ZIP manually)
+    // We'll produce the XML and use JSZip if available, otherwise use a self-contained approach
+    const docxBytes = await buildDOCX(sections, state.word.file.name);
+    const outName = state.word.file.name.replace(/\.pdf$/i, '.docx');
+    downloadDOCX(docxBytes, outName);
+    showToast(T.wordDoneP2D, 'success');
+    document.getElementById('status-word').textContent = outName;
+  } catch(e) {
+    showToast(T.wordErrP2D, 'error');
+    console.error(e);
+  }
+  fill.style.width = '100%';
+  setTimeout(() => bar.classList.remove('visible'), 400);
+  setBtnReady('btn-do-word', 'word', T.convertWordBtn);
+}
+
+async function buildDOCX(sections, sourceName) {
+  // Build a valid DOCX (ZIP with Open XML) without external libraries
+  // using a minimal but spec-compliant structure
+  const escXml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  let paras = '';
+  paras += `<w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:t>${escXml(sourceName.replace(/\.pdf$/i,''))}</w:t></w:r></w:p>`;
+
+  for (const { pageNum, lines } of sections) {
+    // Page heading
+    paras += `<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>${escXml(`Page ${pageNum}`)}</w:t></w:r></w:p>`;
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      paras += `<w:p><w:r><w:t xml:space="preserve">${escXml(line)}</w:t></w:r></w:p>`;
+    }
+    // Page break between pages (except last)
+    if (pageNum < sections.length) {
+      paras += `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+    }
+  }
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:body>${paras}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body>
+</w:document>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="36"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="Heading 2"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="26"/><w:color w:val="2E74B5"/></w:rPr></w:style>
+</w:styles>`;
+
+  const appXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Folio PDF Tools</Application></Properties>`;
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`;
+
+  const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`;
+
+  // Build ZIP in-memory using a minimal implementation
+  const enc = new TextEncoder();
+  const files = [
+    { name: '[Content_Types].xml', data: enc.encode(contentTypesXml) },
+    { name: '_rels/.rels',          data: enc.encode(rootRelsXml) },
+    { name: 'docProps/app.xml',     data: enc.encode(appXml) },
+    { name: 'word/document.xml',    data: enc.encode(documentXml) },
+    { name: 'word/styles.xml',      data: enc.encode(stylesXml) },
+    { name: 'word/_rels/document.xml.rels', data: enc.encode(relsXml) },
+  ];
+
+  return buildZip(files);
+}
+
+function buildZip(files) {
+  // Minimal ZIP builder — no compression (store method), sufficient for DOCX
+  const u32 = (n) => { const b=new Uint8Array(4); new DataView(b.buffer).setUint32(0,n,true); return b; };
+  const u16 = (n) => { const b=new Uint8Array(2); new DataView(b.buffer).setUint16(0,n,true); return b; };
+  const enc = s => new TextEncoder().encode(s);
+
+  function crc32(data) {
+    let c = 0xFFFFFFFF;
+    const table = crc32.t || (crc32.t = (() => {
+      const t = new Uint32Array(256);
+      for (let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=c&1?(0xEDB88320^(c>>>1)):(c>>>1);t[i]=c;}
+      return t;
+    })());
+    for (let i=0;i<data.length;i++) c=table[(c^data[i])&0xFF]^(c>>>8);
+    return (c^0xFFFFFFFF)>>>0;
+  }
+
+  const localHeaders = [];
+  const centralHeaders = [];
+  let offset = 0;
+
+  for (const { name, data } of files) {
+    const nameBytes = enc(name);
+    const crc = crc32(data);
+    const dosDate = 0x5765, dosTime = 0x0000; // fixed date
+
+    const local = concat([
+      new Uint8Array([0x50,0x4B,0x03,0x04]), // signature
+      u16(20),          // version needed
+      u16(0),           // flags
+      u16(0),           // compression: store
+      u16(dosTime), u16(dosDate),
+      u32(crc),
+      u32(data.length), // compressed size
+      u32(data.length), // uncompressed size
+      u16(nameBytes.length),
+      u16(0),           // extra field length
+      nameBytes,
+      data
+    ]);
+
+    const central = concat([
+      new Uint8Array([0x50,0x4B,0x01,0x02]),
+      u16(20), u16(20), u16(0), u16(0),
+      u16(dosTime), u16(dosDate),
+      u32(crc),
+      u32(data.length), u32(data.length),
+      u16(nameBytes.length), u16(0), u16(0), u16(0), u16(0),
+      u32(0),           // external attrs
+      u32(offset),      // local header offset
+      nameBytes
+    ]);
+
+    localHeaders.push(local);
+    centralHeaders.push(central);
+    offset += local.length;
+  }
+
+  const centralStart = offset;
+  const centralData = concat(centralHeaders);
+  const eocd = concat([
+    new Uint8Array([0x50,0x4B,0x05,0x06]),
+    u16(0), u16(0),
+    u16(files.length), u16(files.length),
+    u32(centralData.length),
+    u32(centralStart),
+    u16(0)
+  ]);
+
+  return concat([...localHeaders, centralData, eocd]);
+}
+
+function concat(arrays) {
+  const total = arrays.reduce((s, a) => s + a.length, 0);
+  const out = new Uint8Array(total);
+  let pos = 0;
+  for (const a of arrays) { out.set(a, pos); pos += a.length; }
+  return out;
+}
+
+function downloadDOCX(bytes, filename) {
+  const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
 // ─── UTILS ────────────────────────────────────────────────────
